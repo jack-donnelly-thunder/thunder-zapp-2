@@ -2,7 +2,7 @@ const { App, AwsLambdaReceiver } = require('@slack/bolt');
 const { Configuration, OpenAIApi } = require('openai');
 
 const configuration = new Configuration({
-  apiKey: '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',
+  apiKey: process.env.OPEN_AI_API_KEY,
 });
 const openai = new OpenAIApi(configuration);
 /* 
@@ -19,7 +19,7 @@ const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   receiver: awsLambdaReceiver,
 });
-app.event('app_mention', async ({ event, content, say }) => {
+/*app.event('app_mention', async ({ event, content, say }) => {
   try{
     const appID = 'A051199E413';
       // Start a thread on the original message
@@ -90,27 +90,23 @@ app.event('app_mention', async ({ event, content, say }) => {
   catch(error){
     await say(error.message);
   }
-});
+});*/
 app.event('message', async ({ event, context }) => {
+  //Only react to DMs
   if (event.channel_type === 'im') {
-    console.log('DM Hit');
     try{
-    
-      const appID = 'A051199E413';
-        // Start a thread on the original message
-      
-      var messages = [
-        
-      ]
+          
+      var messages = [ ];
+      //Checking if there's an existing thread
       if (!event.thread_ts) {
-        console.log("no thread hit");
+        //If no thread, we'll do a simple push to openai and start a new thread
         messages.push({"role": "user", "content": event.text});
   
         const result = await openai.createChatCompletion({
           model: "gpt-3.5-turbo",
           messages: messages,
         });
-        console.log(JSON.stringify(messages));
+        //console.log(JSON.stringify(messages));
         await app.client.chat.postMessage({
           token: process.env.SLACK_BOT_TOKEN,
           channel: event.channel,
@@ -119,6 +115,8 @@ app.event('message', async ({ event, context }) => {
         });
       } 
       else {
+        //If there is an existing thread we'll need to gather up the content of the thread
+        //And make a call with all past messages to remember the context of the chat
         const result = await app.client.conversations.history({
           channel: event.channel,
           latest: event.ts,
@@ -126,26 +124,23 @@ app.event('message', async ({ event, context }) => {
         });
         const threadstart = result.messages;
         const originalMessage = threadstart[0];
-        console.log('second call' + JSON.stringify(threadstart));
+        //console.log('second call' + JSON.stringify(threadstart));
         const threadResult = await app.client.conversations.replies({
           channel: event.channel,
           ts: originalMessage.ts,
         });
-        console.log('Thread length' + JSON.stringify(threadResult.messages));
+        //console.log('Thread length' + JSON.stringify(threadResult.messages));
         const totalThread = threadResult.messages
         for(const tmessage of totalThread ){
-          //HERE IS THE ISSUE WITH BOT CHECK
           if (undefined != tmessage.bot_id){
             messages.push({"role": "assistant", "content": tmessage.text});
-            console.log('Thread bot ' + tmessage.text);
+            //console.log('Thread bot ' + tmessage.text);
           }
           else{
             messages.push({"role": "user", "content": tmessage.text});
-            console.log('Thread human ' + tmessage.text);
-  
+            //console.log('Thread human ' + tmessage.text);
           }
         }
-        console.log(JSON.stringify(messages));
         //console.log('threaded messages ' + JSON.stringify(messages));
         const chatresult = await openai.createChatCompletion({
           model: "gpt-3.5-turbo",
@@ -163,6 +158,7 @@ app.event('message', async ({ event, context }) => {
    
   }
     catch(error){
+      //In the case of errors put the error in chat
       await app.client.chat.postMessage({
         token: process.env.SLACK_BOT_TOKEN,
         channel: event.channel,

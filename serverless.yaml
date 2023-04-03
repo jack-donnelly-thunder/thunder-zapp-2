@@ -1,0 +1,18 @@
+service: thunder-chat-2
+frameworkVersion: '3'
+provider:
+  name: aws
+  runtime: nodejs14.x
+  environment:
+    SLACK_USER_TOKEN: ${env:SLACK_USER_TOKEN}
+    SLACK_BOT_TOKEN: ${env:SLACK_BOT_TOKEN}
+    SLACK_SIGNING_SECRET: ${env:SLACK_SIGNING_SECRET}
+functions:
+  slack:
+    handler: app.handler
+    events:
+      - http:
+          path: slack/events
+          method: post
+plugins:
+  - serverless-offline

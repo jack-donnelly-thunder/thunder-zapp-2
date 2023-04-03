@@ -99,6 +99,7 @@ app.event('message', async ({ event, context }) => {
       var messages = [ ];
       //Checking if there's an existing thread
       if (!event.thread_ts) {
+       // console.log('No thread hit' + JSON.stringify(event));
         //If no thread, we'll do a simple push to openai and start a new thread
         messages.push({"role": "user", "content": event.text});
   
@@ -117,6 +118,7 @@ app.event('message', async ({ event, context }) => {
       else {
         //If there is an existing thread we'll need to gather up the content of the thread
         //And make a call with all past messages to remember the context of the chat
+        //console.log('thread event:' + JSON.stringify(event));
         const result = await app.client.conversations.history({
           channel: event.channel,
           latest: event.ts,
@@ -127,8 +129,10 @@ app.event('message', async ({ event, context }) => {
         //console.log('second call' + JSON.stringify(threadstart));
         const threadResult = await app.client.conversations.replies({
           channel: event.channel,
-          ts: originalMessage.ts,
+          ts: event.thread_ts,
         });
+        //console.log(JSON.stringify('context test' + threadResult));
+
         //console.log('Thread length' + JSON.stringify(threadResult.messages));
         const totalThread = threadResult.messages
         for(const tmessage of totalThread ){

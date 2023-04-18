@@ -91,6 +91,8 @@ const app = new App({
     await say(error.message);
   }
 });*/
+
+
 app.event('message', async ({ event, context }) => {
   //Only react to DMs
   if (event.channel_type === 'im') {
@@ -249,7 +251,165 @@ app.event('message', async ({ event, context }) => {
   }
 });*/
 
+app.action('submit_query_input', async ({ ack, body, client }) => {
+  try {
+    // Acknowledge the submit event
+    await ack();
+    console.log(JSON.stringify(body));
+    const inputKey = Object.keys(body.view.state.values).find(key => {
+      return body.view.state.values[key].text_input !== undefined;
+    });
+  
+    // Check if an input key was found
+    if (!inputKey) {
+      throw new Error('No input key found in view state');
+    }
+  
+    // Retrieve the value of the text input
+    const { value } = body.view.state.values[inputKey].text_input;
+    var messages = [ ];
 
+      // Log the user's input to the console
+      messages.push({"role": "system", "content": 'Help write or explain salesforce SOQL queries'});
+      messages.push({"role": "user", "content": value});
+  
+      const result = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: messages,
+      });  
+      // Update the app home with the submitted message
+      await client.views.update({
+      view_id: body.view.id,
+      hash: body.view.hash,
+      view: {
+        type: 'home',
+        blocks: [
+          {
+            type: 'input',
+            element: {
+              type: 'plain_text_input',
+              multiline: true,
+              action_id: 'text_input',
+            },
+            label: {
+              type: 'plain_text',
+              text: 'Paste in a SOQL query or ask how to write one!',
+            },
+          },
+          {
+            type: 'actions',
+            elements: [
+              {
+                type: 'button',
+                text: {
+                  type: 'plain_text',
+                  text: 'Submit',
+                },
+                action_id: 'submit_query_input',
+              },
+            ],
+          },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Query: ${value}*`,
+          },
+        },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Answer:*\n${result.data.choices[0].message.content}`,
+          },
+        },
+        ],
+      },
+    });
+} catch (error) {
+  console.error(error);
+  }
+});
+
+app.action('submit_error_input', async ({ ack, body, client }) => {
+  try {
+    // Acknowledge the submit event
+    await ack();
+    console.log(JSON.stringify(body));
+    const inputKey = Object.keys(body.view.state.values).find(key => {
+      return body.view.state.values[key].text_input !== undefined;
+    });
+  
+    // Check if an input key was found
+    if (!inputKey) {
+      throw new Error('No input key found in view state');
+    }
+  
+    // Retrieve the value of the text input
+    const { value } = body.view.state.values[inputKey].text_input;
+    var messages = [ ];
+
+      // Log the user's input to the console
+      messages.push({"role": "system", "content": 'Help explain this Salesforce related error'});
+      messages.push({"role": "user", "content": value});
+  
+      const result = await openai.createChatCompletion({
+        model: "gpt-3.5-turbo",
+        messages: messages,
+      });  
+      // Update the app home with the submitted message
+      await client.views.update({
+      view_id: body.view.id,
+      hash: body.view.hash,
+      view: {
+        type: 'home',
+        blocks: [
+          {
+            type: 'input',
+            element: {
+              type: 'plain_text_input',
+              multiline: true,
+              action_id: 'text_input',
+            },
+            label: {
+              type: 'plain_text',
+              text: 'Paste in a Salesforce related error!',
+            },
+          },
+          {
+            type: 'actions',
+            elements: [
+              {
+                type: 'button',
+                text: {
+                  type: 'plain_text',
+                  text: 'Submit',
+                },
+                action_id: 'submit_error_input',
+              },
+            ],
+          },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Query: ${value}*`,
+          },
+        },
+          {
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `*Answer:*\n${result.data.choices[0].message.content}`,
+          },
+        },
+        ],
+      },
+    });
+} catch (error) {
+  console.error(error);
+  }
+});
 
 (async () => {
   // Start your app
@@ -260,5 +420,9 @@ app.event('message', async ({ event, context }) => {
 
 module.exports.handler = async (event, context, callback) => {
     const handler = await awsLambdaReceiver.start();
+    console.log(JSON.stringify(event));
+    console.log(JSON.stringify(context));
+    console.log(JSON.stringify(callback));
+
     return handler(event, context, callback);
 }
